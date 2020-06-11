@@ -40,12 +40,17 @@ contract("BNSS test cases", function() {
   });
 
 
-  it("should be able to transfer BNSs", async function() {
+  it("should be able to transfer BNSS", async function() {
 
     await bnsstoken.transfer(accounts[1], 1 * bnssDecimals, {from: accounts[0]});
 
+    // Send from an account with no balance should fail
+    await bnsstoken.transfer(accounts[1], 20 * bnssDecimals, {from: accounts[2]});
+
+    // accounts[1] got funds from 2 addresses, but only one should reflect
     let balanceNow = await bnsstoken.balanceOf.call(accounts[1]);
     assert.equal(balanceNow, 1 * bnssDecimals, 'Correct amount transferred');
+
 
   });
 
@@ -56,10 +61,15 @@ contract("BNSS test cases", function() {
 
     await bnsstoken.transferFrom(accounts[0], accounts[1], 1 * bnssDecimals, {from: accounts[1]});
 
+    // Transferring without suff balance left in approval will fail
+
+    await bnsstoken.transferFrom(accounts[0], accounts[1], 1 * bnssDecimals, {from: accounts[1]});
+
+    // Trasnferred twice, but balance of only execution should change
     let balanceNow = await bnsstoken.balanceOf.call(accounts[1]);
     let balanceNowAcc0 = await bnsstoken.balanceOf.call(accounts[0]);
     assert.equal(balanceNow, 2 * bnssDecimals, 'Correct amount transferred');
-    assert.equal((balanceBeforeAcc0 - balanceNowAcc0), 1 * bnssDecimals, 'Correct amount deducted');
+    assert.equal((balanceBeforeAcc0 - balanceNowAcc0), 1 * bnssDecimals, 'Correct amount deducted');    
 
   });
 
@@ -79,6 +89,16 @@ contract("BNSS test cases", function() {
     await bnsstoken.changeOwner(accounts[0], {from : newAdmin});
     await bnsstoken.becomeOwner({from: accounts[0]});
     assert.equal(adminC, accounts[0], 'Not able to send back admin');
+
+    await truffleAssert.reverts(
+      bnsstoken.changeOwner(newAdmin, {from : accounts[1]}),
+      "VM Exception while processing transaction: revert"
+    ); 
+
+    await bnsstoken.becomeOwner({from: accounts[1]});
+    var adminSet = await bnsstoken.owner.call();
+    assert.equal(adminSet, accounts[0], 'Admin is not correct');
+    assert.notEqual(adminSet, accounts[1], 'Not able to send back admin');
 
   });
 

@@ -54,15 +54,34 @@ contract("BNSB test cases", function() {
     let balance_after_mint = await bnsbtoken.balanceOf.call(accounts[0]);
     assert.equal(balance_after_mint, 50 * bnsbDecimals, 'Minting failed');
 
+    // MInting excess tokens 
+
+    await truffleAssert.reverts(
+      bnsbtoken.mint(accounts[0], 21000000 * bnsbDecimals, {from: accounts[0]}),
+      "VM Exception while processing transaction: revert"
+    ); 
+
+    // Minting from non owner account
+    await truffleAssert.reverts(
+      bnsbtoken.mint(accounts[0], 21 * bnsbDecimals, {from: accounts[1]}),
+      "VM Exception while processing transaction: revert"
+    ); 
+
   });
 
 
   it("should burn tokens", async function() {
 
-    await bnsbtoken.burn(accounts[0], 10 * bnsbDecimals, {from: accounts[0]});
+    await bnsbtoken.burn(10 * bnsbDecimals, {from: accounts[0]});
 
     let balance_after_burn = await bnsbtoken.balanceOf.call(accounts[0]);
     assert.equal(balance_after_burn, 40 * bnsbDecimals, 'Burning failed');
+
+    // Burning from non owner account
+    await truffleAssert.reverts(
+      bnsbtoken.burn(10 * bnsbDecimals, {from: accounts[1]}),
+      "VM Exception while processing transaction: revert"
+    ); 
 
   });
 
@@ -73,6 +92,11 @@ contract("BNSB test cases", function() {
     let mintStatus = await bnsbtoken.mintingFinished.call();
     assert.equal(mintStatus, true, 'status is true now');
 
+    await truffleAssert.reverts(
+      bnsbtoken.finishMinting({from: accounts[1]}),
+      "VM Exception while processing transaction: revert"
+    ); 
+
   });
 
   it("should be able to resume minting", async function() {
@@ -81,6 +105,11 @@ contract("BNSB test cases", function() {
 
     let mintStatus = await bnsbtoken.mintingFinished.call();
     assert.equal(mintStatus, false, 'status is false now');
+
+    await truffleAssert.reverts(
+      bnsbtoken.resumeMinting({from: accounts[1]}),
+      "VM Exception while processing transaction: revert"
+    ); 
 
   });
 
@@ -92,6 +121,15 @@ contract("BNSB test cases", function() {
     let balanceNow = await bnsbtoken.balanceOf.call(accounts[1]);
     assert.equal(balanceNow, 1 * bnsbDecimals, 'Correct amount transferred');
 
+    // Transferring more than balance 
+
+    let balanceBefore = await bnsbtoken.balanceOf.call(accounts[1]);
+    await bnsbtoken.transfer(accounts[0], 5 * bnsbDecimals, {from: accounts[1]})
+    let balanceAfter = await bnsbtoken.balanceOf.call(accounts[1]);
+    
+    assert.equal(balanceBefore, 1 * bnsbDecimals, 'Excess transfer didnt fail');
+    assert.equal(balanceAfter, 1 * bnsbDecimals, 'Excess transfer didnt fail');
+
   });
 
   it("should be able to approve and use transferFrom", async function() {
@@ -99,6 +137,12 @@ contract("BNSB test cases", function() {
     await bnsbtoken.approve(accounts[1], 1 * bnsbDecimals, {from: accounts[0]});
 
     await bnsbtoken.transferFrom(accounts[0], accounts[1], 1 * bnsbDecimals, {from: accounts[1]});
+
+    // Transferring without suff balance left in approval will fail
+
+    await bnsbtoken.transferFrom(accounts[0], accounts[1], 1 * bnsbDecimals, {from: accounts[1]});
+
+    // Trasnferred twice, but balance of only execution should change
 
     let balanceNow = await bnsbtoken.balanceOf.call(accounts[1]);
     let balanceNowAcc0 = await bnsbtoken.balanceOf.call(accounts[0]);
@@ -123,6 +167,16 @@ contract("BNSB test cases", function() {
     await bnsbtoken.changeOwner(accounts[0], {from : newAdmin});
     await bnsbtoken.becomeOwner({from: accounts[0]});
     assert.equal(adminC, accounts[0], 'Not able to send back admin');
+
+    await truffleAssert.reverts(
+      bnsbtoken.changeOwner(newAdmin, {from : accounts[1]}),
+      "VM Exception while processing transaction: revert"
+    ); 
+
+    await bnsbtoken.becomeOwner({from: accounts[1]});
+    var adminSet = await bnsbtoken.owner.call();
+    assert.equal(adminSet, accounts[0], 'Admin is not correct');
+    assert.notEqual(adminSet, accounts[1], 'Not able to send back admin');
 
   });
 

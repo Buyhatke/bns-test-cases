@@ -49,6 +49,12 @@ contract("Trade Engine test cases", function() {
     await token.becomeAdmin({from: accounts[0]});
     assert.equal(adminC, accounts[0], 'Not able to send back admin');
 
+    // testing -ve case, trying to change with non admin account
+    await truffleAssert.reverts(
+      token.changeAdmin(accounts[3], {from : accounts[1]}),
+      "VM Exception while processing transaction: revert"
+    );
+
   });
 
   it("should be able to set lock and unlock", async function() {
@@ -65,6 +71,11 @@ contract("Trade Engine test cases", function() {
     await token.setLock({from : accounts[0]});
     var lockNow = await token.scLock.call();
     assert.equal(lockNow, false, 'Lock is not set to false again');
+
+    await truffleAssert.reverts(
+      token.setLock({from : accounts[1]}),
+      "VM Exception while processing transaction: revert"
+    );
 
   });
 
@@ -83,7 +94,6 @@ contract("Trade Engine test cases", function() {
     var feeUndo = await token.dontTakeFeeInBns.call(accounts[0]);
     assert.equal(feeUndo, false, 'Undo fee to default');
 
-
   });
 
   it("should be able to set address", async function() {
@@ -97,6 +107,11 @@ contract("Trade Engine test cases", function() {
     var feeAccAdd = await token.feeAccount.call();
     assert.equal(feeAccAdd, accounts[2], 'Fee address setting');
 
+    await truffleAssert.reverts(
+      token.setAddresses(bnsstoken.address, accounts[2], {from : accounts[3]}),
+      "VM Exception while processing transaction: revert"
+    );
+
   });
 
   it("should be able to set BNS address", async function() {
@@ -107,6 +122,11 @@ contract("Trade Engine test cases", function() {
     var setbnsAdd = await token.bnsAddress.call();
     assert.equal(setbnsAdd, bnstoken.address, 'BNS address setting');
 
+    await truffleAssert.reverts(
+      token.setbnsAddress(bnstoken.address, {from : accounts[3]}),
+      "VM Exception while processing transaction: revert"
+    );
+
   });
 
   it("should be able to set fee percent", async function() {
@@ -116,6 +136,11 @@ contract("Trade Engine test cases", function() {
 
     var setfee = await token.fee.call();
     assert.equal(setfee, 50, 'Fee setting');
+
+    await truffleAssert.reverts(
+      token.setFeePercent(50, {from : accounts[3]}),
+      "VM Exception while processing transaction: revert"
+    );
 
   });
 
@@ -131,6 +156,11 @@ contract("Trade Engine test cases", function() {
       assert.equal(setRate, rateArray[i], 'Rate setting');
     }
 
+    await truffleAssert.reverts(
+      token.setRateToken(tokensArray, rateArray, {from : accounts[3]}),
+      "VM Exception while processing transaction: revert"
+    );
+
   });
 
   it("should be able to deposit ETH", async function() {
@@ -144,6 +174,7 @@ contract("Trade Engine test cases", function() {
 
     assert.equal((balance_after_deposit - init_token_balance), 100000000, 'Correct amount of ETH sent to contract');
 
+
   });
 
   it("should be able to withdraw ETH", async function() {
@@ -156,6 +187,11 @@ contract("Trade Engine test cases", function() {
     let balance_after_with = await token.balanceOf.call("0x0000000000000000000000000000000000000000", accounts[1]);
 
     assert.equal((init_token_balance - balance_after_with), 100000000, 'Correct amount of ETH withdrawn to contract');
+
+    await truffleAssert.reverts(
+      token.withdraw(1000000000000, {from : accounts[1]}),
+      "VM Exception while processing transaction: revert"
+    );
 
   });
 
@@ -185,6 +221,11 @@ contract("Trade Engine test cases", function() {
 
     assert.equal((init_token_balance - balance_after_with), 100000000, 'Correct amount of BNS withdrawn from contract');
 
+    await truffleAssert.reverts(
+      token.withdrawToken(bnstoken.address, 100000000000000, {from : accounts[0]}),
+      "VM Exception while processing transaction: revert"
+    );
+
   });
 
   it("should be able to mint BNSB", async function() {
@@ -202,6 +243,11 @@ contract("Trade Engine test cases", function() {
 
     assert.equal(balance, 10 * bnsbDecimals, 'Correct amount of BNSB minted');
 
+    await truffleAssert.reverts(
+      bnsbtoken.mint(mintingAddress, 10 * bnsbDecimals, {from: accounts[4]}),
+      "VM Exception while processing transaction: revert"
+    );
+
   });
 
   it("should be able to transfer BNSB to TE", async function() {
@@ -215,6 +261,11 @@ contract("Trade Engine test cases", function() {
     let balance_after_deposit = await token.balanceOf.call(bnsbtoken.address, accounts[1]);
 
     assert.equal((balance_after_deposit - init_token_balance), 10 * bnsbDecimals, 'Correct amount of BNSB deposited to contract');
+
+    await truffleAssert.reverts(
+      token.depositToken(bnsbtoken.address, 10 * bnsbDecimals, {from : accounts[2]}),
+      "VM Exception while processing transaction: revert"
+    );
 
   });
 
@@ -230,6 +281,16 @@ contract("Trade Engine test cases", function() {
 
     assert.equal((balance_after_deposit - init_token_balance), 20000 * bnssDecimals, 'Correct amount of BNSS deposited to contract');
 
+    await truffleAssert.reverts(
+      token.depositToken(bnsstoken.address, 20000 * bnssDecimals, {from : accounts[3]}),
+      "VM Exception while processing transaction: revert"
+    );
+
+    await truffleAssert.reverts(
+      token.depositToken(bnsstoken.address, 40000 * bnssDecimals, {from : accounts[0]}),
+      "VM Exception while processing transaction: revert"
+    );
+
   });
 
   it("should be able to place order", async function() {
@@ -240,7 +301,6 @@ contract("Trade Engine test cases", function() {
     truffleAssert.eventEmitted(results, 'Order', (ev) => {
         return ev.tokenGet == tokenGet && ev.tokenGive == tokenGive && ev.amountGet == amountGet && ev.amountGive == amountGive && ev.nonce == nonce;
     }, "Contract should emit correct event");
-
 
   });
 
@@ -281,6 +341,13 @@ contract("Trade Engine test cases", function() {
       return ev.tokenGet == tokenGet && ev.tokenGive == tokenGive && ev.amountGet == amountGet && ev.amountGive == amountGive;
     }, "Contract should emit correct trade event");
 
+    // SHould not match same order 2nd time
+
+    await truffleAssert.reverts(
+      token.trade(tokenGet, amountGet, tokenGive, amountGive, expiry, nonce, accounts[0], bnsbDecimals, {from: accounts[1]}),
+      "VM Exception while processing transaction: revert"
+    );
+
   });
 
   it("should be able to place order and cancel it", async function() {
@@ -299,6 +366,13 @@ contract("Trade Engine test cases", function() {
     truffleAssert.eventEmitted(resultsCancel, 'Cancel', (ev) => {
         return ev.tokenGet == tokenGet && ev.tokenGive == tokenGive && ev.amountGet == amountGet && ev.amountGive == amountGive;
     }, "Contract should emit correct cancel event");
+
+    // Canceling again should fail 
+
+    await truffleAssert.reverts(
+      token.cancelOrder(tokenGet, amountGet, tokenGive, amountGive, expiry, nonce, {from : accounts[0]}),
+      "VM Exception while processing transaction: revert"
+    );
 
     let resultAvailable = await token.availableVolume.call(tokenGet, amountGet, tokenGive, amountGive, expiry, nonce, accounts[0]);
 
@@ -326,6 +400,14 @@ contract("Trade Engine test cases", function() {
 
     let resultAvailable = await token.availableVolume.call(tokenGet, amountGet, tokenGive, amountGive, expiry, nonce, accounts[0]);
     assert.equal(resultAvailable, amountGet/2, 'Available amount check');
+
+    // FUll amount trade should fail as it is alerady partially executed
+
+    await truffleAssert.reverts(
+      token.trade(tokenGet, amountGet, tokenGive, amountGive, expiry, nonce, accounts[0], amountGet, {from: accounts[1]}),
+      "VM Exception while processing transaction: revert"
+    ); 
+
 
     let resultsTrade2 = await token.trade(tokenGet, amountGet, tokenGive, amountGive, expiry, nonce, accounts[0], amountGet/4, {from: accounts[1]});
 
@@ -573,7 +655,7 @@ contract("Trade Engine test cases", function() {
     let resultAvailable = await token.availableVolume.call(tokenGet, amountGet, tokenGive, amountGive, expiry, nonce, accounts[0]);
     assert.equal(resultAvailable, 0, 'Available amount should be zero now');
 
-  });
+  }); 
 
 
 });
